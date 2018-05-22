@@ -1,16 +1,18 @@
 package me.deprilula28.jdacmdframework;
 
 import lombok.Data;
+import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.entities.MessageEmbed;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 @Data
 public class Command {
     private List<String> aliases;
     private String name;
-    private String permission = "Commands." + name;
 
     @FunctionalInterface
     public interface Executor {
@@ -23,8 +25,14 @@ public class Command {
 
     private final Map<String, Command> subCommandAliasMap = new HashMap<>();
     private final List<Command> subCommands = new ArrayList<>();
+    private final List<Function<CommandContext, String>> predicates = new ArrayList<>();
 
     public void execute(CommandContext context) {
+        predicates.forEach(it -> {
+            String text = it.apply(context);
+            if (text != null) throw new CommandArgsException(text);
+        });
+
         int argCount = context.getArgs().size();
         if (argCount > 0 && subCommandAliasMap.containsKey(context.getArgs().get(0))) {
             Command subCommand = subCommandAliasMap.get(context.getArgs().get(0));
@@ -44,6 +52,11 @@ public class Command {
             else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result);
             else context.send(result.toString());
         }
+    }
+
+    public Command filter(Function<CommandContext, String> predicate) {
+        predicates.add(predicate);
+        return this;
     }
 
     public Command sub(String aliases) {

@@ -11,7 +11,7 @@ import java.util.List;
 public class DiscordBotsOrg {
     private static final String URL_ROOT = "https://discordbots.org/api/";
     private String token;
-    @Builder.Default private String userAgent = "deprilula28's BotListAPI for Java";
+    @Builder.Default private String userAgent = "DepsJDAFramework DiscordBotsOrg integration for Java";
     @Builder.Default private String botID = null;
     @Builder.Default private Gson gson = new GsonBuilder().setPrettyPrinting().enableComplexMapKeySerialization().create();
     @Builder.Default private int botsPageSize = 25;
@@ -57,8 +57,7 @@ public class DiscordBotsOrg {
 
     public List<DiscordBotsUserResult> getVoterIDs() {
         return gson.fromJson(HttpRequest.get(URL_ROOT + "bots/" + botID + "/votes?onlyids=true")
-                        .authorization(token).userAgent(userAgent).body(),
-                    List.class);
+                        .authorization(token).userAgent(userAgent).body(), List.class);
     }
 
     public List<DiscordBotsUserResult> getVoters() {
