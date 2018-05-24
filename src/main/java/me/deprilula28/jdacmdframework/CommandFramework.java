@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.4";
+    public static final String FRAMEWORK_VERSION = "1.1.7";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -128,14 +128,17 @@ public class CommandFramework extends ListenerAdapter {
 
         if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser()) || !(event.getChannel() instanceof TextChannel)) {
             String message = settings.getMentionedMessage();
-            if (!(event.getChannel() instanceof TextChannel) || (event.getTextChannel().canTalk() && event.getMessage().getContentRaw().length() == 21))
+            System.out.println(event.getMessage().getContentRaw().length());
+            if (!(event.getChannel() instanceof TextChannel) || (event.getTextChannel().canTalk() &&
+                    event.getMessage().getContentRaw().length() < 23))
                 if (message != null) event.getChannel().sendMessage(message).queue();
                 else if (settings.getMentionedMessageGetter() != null) event.getChannel()
                     .sendMessage(settings.getMentionedMessageGetter().apply(event.getGuild())).queue();
         } else {
             String prefix = settings.getPrefixGetter() == null ? settings.getPrefix()
                     : settings.getPrefixGetter().apply(event.getGuild());
-            if (event.getMessage().getRawContent().startsWith(prefix)) {
+            if (event.getMessage().getContentRaw().startsWith(prefix) || (settings.isCaseIndependent() &&
+                    event.getMessage().getContentRaw().startsWith(prefix.toUpperCase()))) {
                 if (!event.getTextChannel().canTalk()) {
                     String cantTalkMessage = settings.getDmOnCantTalk();
                     if (cantTalkMessage != null)
@@ -143,7 +146,7 @@ public class CommandFramework extends ListenerAdapter {
                     return;
                 }
 
-                String commandContent = event.getMessage().getRawContent().substring(prefix.length());
+                String commandContent = event.getMessage().getContentRaw().substring(prefix.length());
                 List<String> args = settings.isJoinQuotedArgs() ? quotedArgsJoinedSplit(commandContent) :
                         Arrays.asList(commandContent.split(" "));
                 String command = args.get(0);

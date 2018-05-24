@@ -22,6 +22,7 @@ public class Settings {
     @Builder.Default private boolean commandResultMention = false;
     @Builder.Default private boolean joinQuotedArgs = true;
     @Builder.Default private boolean removeCommandMessages = false;
+    @Builder.Default private boolean caseIndependent = false;
     @Builder.Default private boolean async = false;
     @Builder.Default private int threadPoolSize = 5;
     @Builder.Default private ExecutorService threadPool = null;
