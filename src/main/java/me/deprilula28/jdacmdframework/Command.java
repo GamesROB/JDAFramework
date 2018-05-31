@@ -11,6 +11,10 @@ import java.util.function.Predicate;
 
 @Data
 public class Command {
+    private final Map<String, Command> subCommandAliasMap = new HashMap<>();
+    private final List<Command> subCommands = new ArrayList<>();
+    private final List<Function<CommandContext, String>> predicates = new ArrayList<>();
+
     private List<String> aliases;
     private String name;
 
@@ -19,13 +23,19 @@ public class Command {
         Object execute(CommandContext context);
     }
 
+    private Map<String, String> attribs = new HashMap<>();
     private Executor executor;
     private Settings settings;
     private String usage;
 
-    private final Map<String, Command> subCommandAliasMap = new HashMap<>();
-    private final List<Command> subCommands = new ArrayList<>();
-    private final List<Function<CommandContext, String>> predicates = new ArrayList<>();
+    public String attr(String name) {
+        return attribs.get(name);
+    }
+
+    public Command attr(String name, String value) {
+        attribs.put(name, value);
+        return this;
+    }
 
     public void execute(CommandContext context) {
         predicates.forEach(it -> {
