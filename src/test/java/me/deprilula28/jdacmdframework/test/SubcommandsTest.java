@@ -20,14 +20,17 @@ public class SubcommandsTest {
         CommandFramework framework = new CommandFramework(jda, settings);
 
         // Adding commands
-        framework.command("messagepurge", SubcommandsTest::messagepurge, cmd -> {
+        framework.command("hello", context -> "hello", cmd -> {
+            cmd.sub("world", context -> "world");
+        });
+        framework.command("messagepurge", SubcommandsTest::messagePurge, cmd -> {
             cmd.sub("user", SubcommandsTest::purgeUser);
         });
 
         framework.listenEvents();
     }
 
-    private static String messagepurge(CommandContext context) {
+    private static String messagePurge(CommandContext context) {
         context.getChannel().getHistory().retrievePast(context.nextInt()).queue(history -> {
             history.forEach(cur -> cur.delete().queue());
             context.send(String.format("Deleted %s messages!", history.size()));

@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.7";
+    public static final String FRAMEWORK_VERSION = "1.1.8";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -160,7 +160,7 @@ public class CommandFramework extends ListenerAdapter {
                             .author(event.getAuthor()).authorMember(event.getGuild().getMember(event.getAuthor()))
                             .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(event.getMessage())
                             .args(args).jda(event.getJDA()).framework(this).currentCommand(handle)
-                            .commandTree(Collections.singletonList(handle)).build();
+                            .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
 
                     try {
                         before.forEach(it -> it.execute(context));

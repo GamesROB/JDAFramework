@@ -25,6 +25,10 @@ private String hello(CommandContext context) {
 }
 ```
 
+Other examples:<br>
+[Reflection](https://github.com/GamesROB/JDAFramework/blob/fde83fe0fb8af684719f2518be14a67b1c42f8bc/src/test/java/me/deprilula28/jdacmdframework/test/ReflectionTest.java)<br>
+[SubCommands](https://github.com/GamesROB/JDAFramework/blob/fde83fe0fb8af684719f2518be14a67b1c42f8bc/src/test/java/me/deprilula28/jdacmdframework/test/SubcommandsTest.java)
+
 ## Features
 * Straightforward sintax
 * CommandContext instance with simple argument methods like nextInt(), nextDouble() and remaining()

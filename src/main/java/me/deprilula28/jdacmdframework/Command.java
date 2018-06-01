@@ -43,9 +43,8 @@ public class Command {
             if (text != null) throw new CommandArgsException(text);
         });
 
-        int argCount = context.getArgs().size();
-        if (argCount > 0 && subCommandAliasMap.containsKey(context.getArgs().get(0))) {
-            Command subCommand = subCommandAliasMap.get(context.getArgs().get(0));
+        if (context.getArgs().size() > context.getCurArg() && subCommandAliasMap.containsKey(context.getArgs().get(context.getCurArg()))) {
+            Command subCommand = subCommandAliasMap.get(context.getArgs().get(context.getCurArg()));
             context.setCurrentCommand(subCommand);
             context.getCommandTree().add(subCommand);
 
