@@ -5,6 +5,7 @@ import me.deprilula28.jdacmdframework.annotations.ReflectionExecutor;
 import me.deprilula28.jdacmdframework.discordbotsorgapi.DiscordBotsOrg;
 import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import me.deprilula28.jdacmdframework.exceptions.InvalidCommandSyntaxException;
+import me.deprilula28.jdacmdframework.executors.CategoriesExecutor;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.entities.TextChannel;
 import net.dv8tion.jda.core.events.Event;
@@ -21,7 +22,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.8";
+    public static final String FRAMEWORK_VERSION = "1.1.9";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -57,6 +58,18 @@ public class CommandFramework extends ListenerAdapter {
     public static interface EventHandler<T> {
         void handle(T event) throws Exception;
     }
+
+    public CategoriesExecutor categoriesExecutor() {
+        return new CategoriesExecutor(this);
+    }
+
+    /*
+    TODO
+
+    public CategoriesExecutor paginatedExecutor() {
+        return new CategoriesExecutor(this);
+    }
+    */
 
     public Command command(String aliases) {
         return command(aliases, null, n -> {});
