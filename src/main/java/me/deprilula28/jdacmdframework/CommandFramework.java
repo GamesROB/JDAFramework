@@ -8,10 +8,12 @@ import me.deprilula28.jdacmdframework.exceptions.InvalidCommandSyntaxException;
 import me.deprilula28.jdacmdframework.executors.CategoriesExecutor;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.entities.TextChannel;
+import net.dv8tion.jda.core.entities.User;
 import net.dv8tion.jda.core.events.Event;
 import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 
 import java.util.*;
@@ -22,7 +24,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.9";
+    public static final String FRAMEWORK_VERSION = "1.1.10";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -30,6 +32,7 @@ public class CommandFramework extends ListenerAdapter {
     private final List<Command.Executor> before = new ArrayList<>();
     private final List<Command.Executor> after = new ArrayList<>();
     private final Map<Class<? extends Event>, List<EventHandler>> eventHandlers = new HashMap<>();
+    private final Map<String, ReactionHandler> reactionHandlers = new HashMap<>();
 
     // Bots that aren't sharded
     public CommandFramework(JDA jda, Settings settings) {
@@ -47,6 +50,11 @@ public class CommandFramework extends ListenerAdapter {
         this.settings = settings;
         if (settings.isAsync()) threadPool = settings.getThreadPool() == null ?
                 Executors.newFixedThreadPool(settings.getThreadPoolSize()) : settings.getThreadPool();
+    }
+
+    @FunctionalInterface
+    public static interface ReactionHandler {
+        void handle(CommandContext context);
     }
 
     @FunctionalInterface
@@ -71,6 +79,11 @@ public class CommandFramework extends ListenerAdapter {
     }
     */
 
+    public void reactionHandler(String emote, ReactionHandler handler) {
+        if (reactionHandlers.containsKey(emote)) throw new RuntimeException("That emote already has a handler. Don't use the same emote on multiple commands.");
+        reactionHandlers.put(emote, handler);
+    }
+
     public Command command(String aliases) {
         return command(aliases, null, n -> {});
     }
@@ -84,7 +97,7 @@ public class CommandFramework extends ListenerAdapter {
     }
 
     public Command command(String aliases, Command.Executor executor, AdapterCommand adapter) {
-        return Command.registerCommand(aliases, executor, adapter, settings, commands, aliasMap);
+        return Command.registerCommand(aliases, executor, adapter, this, commands, aliasMap);
     }
 
     public Command reflCommand(String aliases, Class<?> clazz) {
@@ -136,6 +149,34 @@ public class CommandFramework extends ListenerAdapter {
     }
 
     @Override
+    public void onGuildMessageReactionAdd(GuildMessageReactionAddEvent event) {
+        if (event.getReactionEmote().isEmote() || event.getUser().isBot()) return;
+        String reaction = event.getReactionEmote().getName();
+        System.out.println("Received request with reaction: " + reaction + ", handlers: " + reactionHandlers.toString());
+
+        if (reactionHandlers.containsKey(reaction)) {
+            System.out.println("Found handler.");
+            event.getChannel().getMessageById(event.getMessageId()).queue(message -> {
+                if (!message.getAuthor().equals(event.getJDA().getSelfUser())) return;
+                System.out.println("Reactions: " + message.getReactions().toString());
+                message.getReactions().stream()
+                        .filter(it -> !it.getReactionEmote().isEmote() && it.getReactionEmote().getName().equals(reaction))
+                        .findAny().ifPresent(emote -> emote.getUsers().queue(users -> {
+                    System.out.println("Found users: " + String.join(", ", users.stream().map(Object::toString).collect(Collectors.toList())));
+                    if (!users.contains(event.getJDA().getSelfUser())) return;
+
+                    CommandContext context = CommandContext.builder()
+                            .author(event.getUser()).authorMember(event.getGuild().getMember(event.getUser()))
+                            .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(message)
+                            .sentMessage(RequestPromise.valueProvided(message)).event(event)
+                            .jda(event.getJDA()).framework(this).currentReaction(reaction).build();
+                    reactionHandlers.get(reaction).handle(context);
+                }));
+            });
+        }
+    }
+
+    @Override
     public void onMessageReceived(MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) return;
 
@@ -172,7 +213,7 @@ public class CommandFramework extends ListenerAdapter {
                     CommandContext context = CommandContext.builder()
                             .author(event.getAuthor()).authorMember(event.getGuild().getMember(event.getAuthor()))
                             .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(event.getMessage())
-                            .args(args).jda(event.getJDA()).framework(this).currentCommand(handle)
+                            .args(args).jda(event.getJDA()).framework(this).currentCommand(handle).event(event)
                             .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
 
                     try {

@@ -24,6 +24,7 @@ public class Settings {
     @Builder.Default private boolean removeCommandMessages = false;
     @Builder.Default private boolean caseIndependent = false;
     @Builder.Default private boolean async = false;
+    @Builder.Default private boolean removeReaction = false;
     @Builder.Default private int threadPoolSize = 5;
     @Builder.Default private ExecutorService threadPool = null;
     @Builder.Default private Consumer<String> loggerFunction = System.out::println;

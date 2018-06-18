@@ -8,6 +8,8 @@ import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.MessageBuilder;
 import net.dv8tion.jda.core.entities.*;
+import net.dv8tion.jda.core.events.Event;
+import net.dv8tion.jda.core.requests.RestAction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,12 +25,14 @@ public class CommandContext {
     private Member authorMember;
     private Guild guild;
     private TextChannel channel;
-    private Message message;
-    private List<String> args;
     private JDA jda;
     private CommandFramework framework;
-    private Command currentCommand;
-    private List<Command> commandTree;
+    private Message message;
+    private Event event;
+    @Builder.Default private List<Command> commandTree = new ArrayList<>();
+    @Builder.Default private List<String> args = new ArrayList<>();
+    @Builder.Default private Command currentCommand = null;
+    @Builder.Default private String currentReaction = null;
 
     @Builder.Default private RequestPromise<Message> sentMessage = null;
 
@@ -64,7 +68,9 @@ public class CommandContext {
         MessageBuilder message = new MessageBuilder();
         builder.accept(message);
 
-        sentMessage = RequestPromise.forAction(channel.sendMessage(message.build()));
+        sentMessage = currentReaction == null
+                ? RequestPromise.forAction(channel.sendMessage(message.build()))
+                : sentMessage.morphAction(it -> it.editMessage(message.build()));
         return sentMessage;
     }
 

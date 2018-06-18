@@ -12,6 +12,12 @@ public class RequestPromise<T> implements Consumer<T> {
     private final List<Consumer<T>> extraHandlers = new ArrayList<>();
     private Optional<T> response = Optional.empty();
 
+    public static <T> RequestPromise<T> valueProvided(T value) {
+        RequestPromise<T> promise = new RequestPromise<>();
+        promise.accept(value);
+        return promise;
+    }
+
     public static <T> RequestPromise<T> forAction(RestAction<T> restAction) {
         RequestPromise<T> promise = new RequestPromise<>();
         restAction.queue(promise);

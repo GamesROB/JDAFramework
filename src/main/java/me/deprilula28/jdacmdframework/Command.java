@@ -3,9 +3,14 @@ package me.deprilula28.jdacmdframework;
 import lombok.Data;
 import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import net.dv8tion.jda.core.EmbedBuilder;
+import net.dv8tion.jda.core.MessageBuilder;
+import net.dv8tion.jda.core.entities.Message;
 import net.dv8tion.jda.core.entities.MessageEmbed;
+import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent;
+import net.dv8tion.jda.core.exceptions.PermissionException;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -14,8 +19,10 @@ public class Command {
     private final Map<String, Command> subCommandAliasMap = new HashMap<>();
     private final List<Command> subCommands = new ArrayList<>();
     private final List<Function<CommandContext, String>> predicates = new ArrayList<>();
+    private final List<String> emotes = new ArrayList<>();
 
     private List<String> aliases;
+    private CommandFramework framework;
     private String name;
 
     @FunctionalInterface
@@ -46,6 +53,7 @@ public class Command {
         if (context.getArgs().size() > context.getCurArg() && subCommandAliasMap.containsKey(context.getArgs().get(context.getCurArg()))) {
             Command subCommand = subCommandAliasMap.get(context.getArgs().get(context.getCurArg()));
             context.setCurrentCommand(subCommand);
+            context.setCommandTree(new ArrayList<>(Collections.singletonList(this)));
             context.getCommandTree().add(subCommand);
 
             context.setCurArg(context.getCurArg() + 1);
@@ -56,11 +64,36 @@ public class Command {
 
         Object result = executor.execute(context);
         if (result != null) {
-            if (result instanceof String) context.send((String) result);
-            else if (result instanceof MessageEmbed) context.send((MessageEmbed) result);
-            else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result);
-            else context.send(result.toString());
+            Consumer<Message> reactions = message -> emotes.forEach(it -> message.addReaction(it).queue());
+
+            if (result instanceof String) context.send((String) result).then(reactions);
+            else if (result instanceof MessageEmbed) context.send((MessageEmbed) result).then(reactions);
+            else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result).then(reactions);
+            else if (result instanceof Consumer) context.send((Consumer<MessageBuilder>) result).then(reactions);
+            else context.send(result.toString()).then(reactions);
         }
+    }
+
+    public Command react(String emote, CommandFramework.ReactionHandler handler) {
+        emotes.add(emote);
+        framework.reactionHandler(emote, handler);
+
+        return this;
+    }
+
+    public Command reactSub(String emote, String subCommand) {
+        if (!subCommandAliasMap.containsKey(subCommand)) throw new RuntimeException("Sub command not defined.");
+        emotes.add(emote);
+        framework.reactionHandler(emote, context -> {
+            context.setArgs(Arrays.asList(aliases.get(0), subCommand));
+            context.setCommandTree(Collections.singletonList(this));
+            execute(context);
+            if (framework.getSettings().isRemoveReaction()) try {
+                ((GuildMessageReactionAddEvent) context.getEvent()).getReaction().removeReaction(context.getAuthor()).queue();
+            } catch (PermissionException e) {}
+        });
+
+        return this;
     }
 
     public Command filter(Function<CommandContext, String> predicate) {
@@ -81,19 +114,20 @@ public class Command {
     }
 
     public Command sub(String aliases, Executor handler, CommandFramework.AdapterCommand adapter) {
-        return registerCommand(aliases, handler, adapter, settings, subCommands, subCommandAliasMap);
+        return registerCommand(aliases, handler, adapter, framework, subCommands, subCommandAliasMap);
     }
 
     public static Command registerCommand(String aliases, Executor handler, CommandFramework.AdapterCommand adapter,
-                                       Settings settings, List<Command> commandList, Map<String, Command> aliasMap) {
+                                       CommandFramework framework, List<Command> commandList, Map<String, Command> aliasMap) {
         String[] aliasList = aliases.split(" ");
         String name = aliasList[0];
 
         Command command = new Command();
-        command.setSettings(settings);
+        command.setFramework(framework);
+        command.setSettings(framework.getSettings());
         command.setName(name);
         command.setAliases(Arrays.asList(aliasList));
-        command.setUsage(String.format("%s%s", settings.getPrefix(), name));
+        command.setUsage(String.format("%s%s", framework.getSettings().getPrefix(), name));
         if (handler != null) command.setExecutor(handler);
         adapter.use(command);
 
