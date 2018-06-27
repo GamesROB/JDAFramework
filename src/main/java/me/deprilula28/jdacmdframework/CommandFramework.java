@@ -6,7 +6,10 @@ import me.deprilula28.jdacmdframework.discordbotsorgapi.DiscordBotsOrg;
 import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import me.deprilula28.jdacmdframework.exceptions.InvalidCommandSyntaxException;
 import me.deprilula28.jdacmdframework.executors.CategoriesExecutor;
+import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
+import net.dv8tion.jda.core.MessageBuilder;
+import net.dv8tion.jda.core.entities.MessageEmbed;
 import net.dv8tion.jda.core.entities.TextChannel;
 import net.dv8tion.jda.core.entities.User;
 import net.dv8tion.jda.core.events.Event;
@@ -14,17 +17,19 @@ import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent;
+import net.dv8tion.jda.core.exceptions.PermissionException;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.10";
+    public static final String FRAMEWORK_VERSION = "1.1.12";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -152,17 +157,13 @@ public class CommandFramework extends ListenerAdapter {
     public void onGuildMessageReactionAdd(GuildMessageReactionAddEvent event) {
         if (event.getReactionEmote().isEmote() || event.getUser().isBot()) return;
         String reaction = event.getReactionEmote().getName();
-        System.out.println("Received request with reaction: " + reaction + ", handlers: " + reactionHandlers.toString());
 
         if (reactionHandlers.containsKey(reaction)) {
-            System.out.println("Found handler.");
             event.getChannel().getMessageById(event.getMessageId()).queue(message -> {
                 if (!message.getAuthor().equals(event.getJDA().getSelfUser())) return;
-                System.out.println("Reactions: " + message.getReactions().toString());
                 message.getReactions().stream()
                         .filter(it -> !it.getReactionEmote().isEmote() && it.getReactionEmote().getName().equals(reaction))
                         .findAny().ifPresent(emote -> emote.getUsers().queue(users -> {
-                    System.out.println("Found users: " + String.join(", ", users.stream().map(Object::toString).collect(Collectors.toList())));
                     if (!users.contains(event.getJDA().getSelfUser())) return;
 
                     CommandContext context = CommandContext.builder()
@@ -170,7 +171,16 @@ public class CommandFramework extends ListenerAdapter {
                             .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(message)
                             .sentMessage(RequestPromise.valueProvided(message)).event(event)
                             .jda(event.getJDA()).framework(this).currentReaction(reaction).build();
-                    reactionHandlers.get(reaction).handle(context);
+
+                    try {
+                        reactionHandlers.get(reaction).handle(context);
+                    } catch (Exception e) {
+                        if (e instanceof InvalidCommandSyntaxException) {
+                            try {
+                                event.getReaction().removeReaction(event.getUser()).queue();
+                            } catch (PermissionException ex) {}
+                        } else settings.getCommandExceptionFunction().accept(context, e);
+                    }
                 }));
             });
         }
@@ -217,7 +227,17 @@ public class CommandFramework extends ListenerAdapter {
                             .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
 
                     try {
-                        before.forEach(it -> it.execute(context));
+                        for (Command.Executor executor : before) {
+                            Object result = executor.execute(context);
+                            if (result == null) continue;
+
+                            if (result instanceof String) context.send((String) result);
+                            else if (result instanceof MessageEmbed) context.send((MessageEmbed) result);
+                            else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result);
+                            else if (result instanceof Consumer) context.send((Consumer<MessageBuilder>) result);
+                            else context.send(result.toString());
+                            return;
+                        }
                         handle.execute(context);
                         after.forEach(it -> it.execute(context));
                     } catch (Exception e) {
