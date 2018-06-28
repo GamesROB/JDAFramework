@@ -33,6 +33,7 @@ public class CommandContext {
     @Builder.Default private List<String> args = new ArrayList<>();
     @Builder.Default private Command currentCommand = null;
     @Builder.Default private String currentReaction = null;
+    @Builder.Default private List<User> reactionUsers = null;
 
     @Builder.Default private RequestPromise<Message> sentMessage = null;
 

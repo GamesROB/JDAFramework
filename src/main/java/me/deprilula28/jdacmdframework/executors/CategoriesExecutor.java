@@ -75,6 +75,8 @@ public class CategoriesExecutor implements Command.Executor {
         for (String alias : split) categoryAliases.put(alias, category);
         categories.add(category);
 
+        framework.reactionHandler(emoji, context -> context.edit(emoji + nameGen.apply(context) + "\n" + textGen.apply(context)));
+
         return this;
     }
 

@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.12";
+    public static final String FRAMEWORK_VERSION = "1.1.13";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -37,7 +37,7 @@ public class CommandFramework extends ListenerAdapter {
     private final List<Command.Executor> before = new ArrayList<>();
     private final List<Command.Executor> after = new ArrayList<>();
     private final Map<Class<? extends Event>, List<EventHandler>> eventHandlers = new HashMap<>();
-    private final Map<String, ReactionHandler> reactionHandlers = new HashMap<>();
+    private final Map<String, List<ReactionHandler>> reactionHandlers = new HashMap<>();
 
     // Bots that aren't sharded
     public CommandFramework(JDA jda, Settings settings) {
@@ -85,8 +85,8 @@ public class CommandFramework extends ListenerAdapter {
     */
 
     public void reactionHandler(String emote, ReactionHandler handler) {
-        if (reactionHandlers.containsKey(emote)) throw new RuntimeException("That emote already has a handler. Don't use the same emote on multiple commands.");
-        reactionHandlers.put(emote, handler);
+        if (!reactionHandlers.containsKey(emote)) reactionHandlers.put(emote, new ArrayList<>());
+        reactionHandlers.get(emote).add(handler);
     }
 
     public Command command(String aliases) {
@@ -173,7 +173,7 @@ public class CommandFramework extends ListenerAdapter {
                             .jda(event.getJDA()).framework(this).currentReaction(reaction).build();
 
                     try {
-                        reactionHandlers.get(reaction).handle(context);
+                        reactionHandlers.get(reaction).forEach(cur -> cur.handle(context));
                     } catch (Exception e) {
                         if (e instanceof InvalidCommandSyntaxException) {
                             try {
