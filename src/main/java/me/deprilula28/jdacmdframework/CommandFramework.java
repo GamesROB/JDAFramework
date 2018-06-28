@@ -170,7 +170,7 @@ public class CommandFramework extends ListenerAdapter {
                             .author(event.getUser()).authorMember(event.getGuild().getMember(event.getUser()))
                             .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(message)
                             .sentMessage(RequestPromise.valueProvided(message)).event(event)
-                            .jda(event.getJDA()).framework(this).currentReaction(reaction).build();
+                            .jda(event.getJDA()).framework(this).currentReaction(reaction).reactionUsers(users).build();
 
                     try {
                         reactionHandlers.get(reaction).forEach(cur -> cur.handle(context));
