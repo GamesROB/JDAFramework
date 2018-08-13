@@ -2,7 +2,6 @@ package me.deprilula28.jdacmdframework;
 
 import lombok.Getter;
 import me.deprilula28.jdacmdframework.annotations.ReflectionExecutor;
-import me.deprilula28.jdacmdframework.discordbotsorgapi.DiscordBotsOrg;
 import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import me.deprilula28.jdacmdframework.exceptions.InvalidCommandSyntaxException;
 import me.deprilula28.jdacmdframework.executors.CategoriesExecutor;
@@ -29,7 +28,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.14";
+    public static final String FRAMEWORK_VERSION = "1.1.16";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -290,20 +289,5 @@ public class CommandFramework extends ListenerAdapter {
 
     private void log(String message) {
         settings.getLoggerFunction().accept(message);
-    }
-
-    public DiscordBotsOrg setupDiscordBotsOrg(String dblToken) {
-        DiscordBotsOrg dbo = DiscordBotsOrg.builder()
-                .botID(shards.get(0).getSelfUser().getId()).shardCount(shards.size()).token(dblToken)
-                .build();
-
-        dbo.setStats(shards.stream().map(it -> it.getGuilds().size()).collect(Collectors.toList()));
-
-        handleEvent(GuildJoinEvent.class, event -> dbo.setStats(shards.indexOf(event.getJDA()),
-                event.getJDA().getGuilds().size()));
-        handleEvent(GuildLeaveEvent.class, event -> dbo.setStats(shards.indexOf(event.getJDA()),
-                event.getJDA().getGuilds().size()));
-
-        return dbo;
     }
 }

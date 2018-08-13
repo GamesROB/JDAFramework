@@ -29,7 +29,7 @@ public class Settings {
     @Builder.Default private ExecutorService threadPool = null;
     @Builder.Default private Consumer<String> loggerFunction = System.out::println;
     @Builder.Default private BiConsumer<CommandContext, Exception> commandExceptionFunction = (context, e) -> {
-        System.err.println("Failed to handle command " + context.getMessage().getRawContent() + ":");
+        System.err.println("Failed to handle command " + context.getMessage().getContentRaw() + ":");
         e.printStackTrace();
         context.send("❌ An error occured.");
     };

@@ -128,13 +128,22 @@ public class CommandContext {
         return Utility.rethrow(n -> new InvalidCommandSyntaxException(), n -> Double.parseDouble(next()));
     }
 
-    @Builder.Default private Pattern userPattern = Pattern.compile("<@[0-9]{18}>");
-    @Builder.Default private Pattern nickedUserPattern = Pattern.compile("<@![0-9]{18}>");
+    @Builder.Default private Pattern userPattern = Pattern.compile("<@[0-9]+>");
+    @Builder.Default private Pattern nickedUserPattern = Pattern.compile("<@![0-9]+>");
+    @Builder.Default private Pattern userTagPattern = Pattern.compile(".*#[0-9]{4}");
+    @Builder.Default private Pattern idPattern = Pattern.compile("[0-9]+");
 
     public User nextUser() {
         String arg = next();
         if (userPattern.matcher(arg).matches()) return jda.getUserById(arg.substring(2, arg.length() - 1));
         else if (nickedUserPattern.matcher(arg).matches()) return jda.getUserById(arg.substring(3, arg.length() - 1));
+        else if (idPattern.matcher(arg).matches())
+            return Utility.rethrow(n -> new InvalidCommandSyntaxException(), n -> jda.getUserById(Long.parseLong(arg)));
+        else if (userTagPattern.matcher(arg).matches()) {
+            return jda.getUsersByName(arg.substring(0, arg.length() - 5), true)
+                    .stream().filter(it -> it.getDiscriminator().equals(arg.substring(arg.length() - 4)))
+                    .findFirst().orElseThrow(InvalidCommandSyntaxException::new);
+        }
         else throw new InvalidCommandSyntaxException();
     }
 
