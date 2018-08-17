@@ -138,7 +138,8 @@ public class CommandContext {
         if (userPattern.matcher(arg).matches()) return jda.getUserById(arg.substring(2, arg.length() - 1));
         else if (nickedUserPattern.matcher(arg).matches()) return jda.getUserById(arg.substring(3, arg.length() - 1));
         else if (idPattern.matcher(arg).matches())
-            return Utility.rethrow(n -> new InvalidCommandSyntaxException(), n -> jda.getUserById(Long.parseLong(arg)));
+            return Optional.ofNullable(jda.getUserById((long) Utility.rethrow(n -> new InvalidCommandSyntaxException(), n -> Long.parseLong(arg))))
+                .orElseThrow(InvalidCommandSyntaxException::new);
         else if (userTagPattern.matcher(arg).matches()) {
             return jda.getUsersByName(arg.substring(0, arg.length() - 5), true)
                     .stream().filter(it -> it.getDiscriminator().equals(arg.substring(arg.length() - 4)))
