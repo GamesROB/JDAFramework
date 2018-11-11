@@ -10,10 +10,7 @@ import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.MessageBuilder;
 import net.dv8tion.jda.core.entities.MessageEmbed;
 import net.dv8tion.jda.core.entities.TextChannel;
-import net.dv8tion.jda.core.entities.User;
 import net.dv8tion.jda.core.events.Event;
-import net.dv8tion.jda.core.events.guild.GuildJoinEvent;
-import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent;
 import net.dv8tion.jda.core.exceptions.PermissionException;
@@ -25,14 +22,13 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.17";
+    public static final String FRAMEWORK_VERSION = "1.1.18";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
-    private final Map<String, Command> aliasMap = new HashMap<>();
+    @Getter private final Map<String, Command> aliasMap = new HashMap<>();
     private final List<Command.Executor> before = new ArrayList<>();
     private final List<Command.Executor> after = new ArrayList<>();
     private final Map<Class<? extends Event>, List<EventHandler>> eventHandlers = new HashMap<>();
@@ -82,6 +78,15 @@ public class CommandFramework extends ListenerAdapter {
         return new CategoriesExecutor(this);
     }
     */
+
+    public void clear() {
+        commands.clear();
+        aliasMap.clear();
+        before.clear();
+        after.clear();
+        eventHandlers.clear();
+        reactionHandlers.clear();
+    }
 
     public void reactionHandler(String emote, ReactionHandler handler) {
         if (!reactionHandlers.containsKey(emote)) reactionHandlers.put(emote, new ArrayList<>());
@@ -192,8 +197,7 @@ public class CommandFramework extends ListenerAdapter {
         if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser()) || !(event.getChannel() instanceof TextChannel)) {
             String message = settings.getMentionedMessage();
             System.out.println(event.getMessage().getContentRaw().length());
-            if (!(event.getChannel() instanceof TextChannel) || (event.getTextChannel().canTalk() &&
-                    event.getMessage().getContentRaw().length() < 23))
+            if ((event.getTextChannel().canTalk() && event.getMessage().getContentRaw().length() < 23))
                 if (message != null) event.getChannel().sendMessage(message).queue();
                 else if (settings.getMentionedMessageGetter() != null) event.getChannel()
                     .sendMessage(settings.getMentionedMessageGetter().apply(event.getGuild())).queue();
