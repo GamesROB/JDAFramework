@@ -192,9 +192,9 @@ public class CommandFramework extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        if (event.getAuthor().isBot()) return;
+        if (event.getAuthor().isBot() || !(event.getChannel() instanceof TextChannel)) return;
 
-        if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser()) || !(event.getChannel() instanceof TextChannel)) {
+        if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser())) {
             String message = settings.getMentionedMessage();
             System.out.println(event.getMessage().getContentRaw().length());
             if ((event.getTextChannel().canTalk() && event.getMessage().getContentRaw().length() < 23))
@@ -228,6 +228,7 @@ public class CommandFramework extends ListenerAdapter {
                             .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(event.getMessage())
                             .args(args).jda(event.getJDA()).framework(this).currentCommand(handle).event(event)
                             .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
+                    boolean runningAfter = false;
 
                     try {
                         for (Command.Executor executor : before) {
@@ -242,13 +243,15 @@ public class CommandFramework extends ListenerAdapter {
                             return;
                         }
                         handle.execute(context);
-                        after.forEach(it -> it.execute(context));
+                        runningAfter = true;
+                        runAfter(context);
                     } catch (Exception e) {
                         if (e instanceof InvalidCommandSyntaxException) {
                             context.send("❌ Invalid syntax!\n" + handle.getUsage());
                         } else if (e instanceof CommandArgsException) {
                             context.send("❌ " + e.getMessage());
                         } else settings.getCommandExceptionFunction().accept(context, e);
+                        if (!runningAfter) runAfter(context);
                     }
                 };
 
@@ -256,6 +259,16 @@ public class CommandFramework extends ListenerAdapter {
                 else function.run();
             }
         }
+    }
+
+    private void runAfter(CommandContext context) {
+        after.forEach(it -> {
+            try {
+                it.execute(context);
+            } catch (Exception ex) {
+                settings.getCommandExceptionFunction().accept(context, ex);
+            }
+        });
     }
 
     @Override
