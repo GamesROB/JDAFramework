@@ -5,16 +5,17 @@ import me.deprilula28.jdacmdframework.annotations.ReflectionExecutor;
 import me.deprilula28.jdacmdframework.exceptions.CommandArgsException;
 import me.deprilula28.jdacmdframework.exceptions.InvalidCommandSyntaxException;
 import me.deprilula28.jdacmdframework.executors.CategoriesExecutor;
-import net.dv8tion.jda.core.EmbedBuilder;
-import net.dv8tion.jda.core.JDA;
-import net.dv8tion.jda.core.MessageBuilder;
-import net.dv8tion.jda.core.entities.MessageEmbed;
-import net.dv8tion.jda.core.entities.TextChannel;
-import net.dv8tion.jda.core.events.Event;
-import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.core.events.message.guild.react.GuildMessageReactionAddEvent;
-import net.dv8tion.jda.core.exceptions.PermissionException;
-import net.dv8tion.jda.core.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.MessageBuilder;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.events.Event;
+import net.dv8tion.jda.api.events.GenericEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.message.guild.react.GuildMessageReactionAddEvent;
+import net.dv8tion.jda.api.exceptions.PermissionException;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -24,7 +25,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CommandFramework extends ListenerAdapter {
-    public static final String FRAMEWORK_VERSION = "1.1.18";
+    public static final String FRAMEWORK_VERSION = "1.2.0";
     private List<JDA> shards;
     @Getter private Settings settings;
     @Getter private final List<Command> commands = new ArrayList<>();
@@ -163,11 +164,11 @@ public class CommandFramework extends ListenerAdapter {
         String reaction = event.getReactionEmote().getName();
 
         if (reactionHandlers.containsKey(reaction)) {
-            event.getChannel().getMessageById(event.getMessageId()).queue(message -> {
+            event.getChannel().retrieveMessageById(event.getMessageId()).queue(message -> {
                 if (!message.getAuthor().equals(event.getJDA().getSelfUser())) return;
                 message.getReactions().stream()
                         .filter(it -> !it.getReactionEmote().isEmote() && it.getReactionEmote().getName().equals(reaction))
-                        .findAny().ifPresent(emote -> emote.getUsers().queue(users -> {
+                        .findAny().ifPresent(emote -> emote.retrieveUsers().queue(users -> {
                     if (!users.contains(event.getJDA().getSelfUser())) return;
 
                     CommandContext context = CommandContext.builder()
@@ -192,72 +193,77 @@ public class CommandFramework extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        if (event.getAuthor().isBot() || !(event.getChannel() instanceof TextChannel)) return;
+        try {
+            if (event.getAuthor().isBot() || !(event.getChannel() instanceof TextChannel)) return;
 
-        if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser())) {
-            String message = settings.getMentionedMessage();
-            System.out.println(event.getMessage().getContentRaw().length());
-            if ((event.getTextChannel().canTalk() && event.getMessage().getContentRaw().length() < 23))
-                if (message != null) event.getChannel().sendMessage(message).queue();
-                else if (settings.getMentionedMessageGetter() != null) event.getChannel()
-                    .sendMessage(settings.getMentionedMessageGetter().apply(event.getGuild())).queue();
-        } else {
-            String prefix = settings.getPrefixGetter() == null ? settings.getPrefix()
-                    : settings.getPrefixGetter().apply(event.getGuild());
-            if (event.getMessage().getContentRaw().startsWith(prefix) || (settings.isCaseIndependent() &&
-                    event.getMessage().getContentRaw().startsWith(prefix.toUpperCase()))) {
-                if (!event.getTextChannel().canTalk()) {
-                    String cantTalkMessage = settings.getDmOnCantTalk();
-                    if (cantTalkMessage != null)
-                        event.getAuthor().openPrivateChannel().queue(it -> it.sendMessage(cantTalkMessage).queue());
-                    return;
-                }
-
-                String commandContent = event.getMessage().getContentRaw().substring(prefix.length());
-                List<String> args = settings.isJoinQuotedArgs() ? quotedArgsJoinedSplit(commandContent) :
-                        Arrays.asList(commandContent.split(" "));
-                String command = args.get(0);
-
-                if (!aliasMap.containsKey(command)) return;
-                if (settings.isRemoveCommandMessages()) event.getMessage().delete().queue();
-
-                Command handle = aliasMap.get(command);
-                Runnable function = () -> {
-                    CommandContext context = CommandContext.builder()
-                            .author(event.getAuthor()).authorMember(event.getGuild().getMember(event.getAuthor()))
-                            .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(event.getMessage())
-                            .args(args).jda(event.getJDA()).framework(this).currentCommand(handle).event(event)
-                            .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
-                    boolean runningAfter = false;
-
-                    try {
-                        for (Command.Executor executor : before) {
-                            Object result = executor.execute(context);
-                            if (result == null) continue;
-
-                            if (result instanceof String) context.send((String) result);
-                            else if (result instanceof MessageEmbed) context.send((MessageEmbed) result);
-                            else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result);
-                            else if (result instanceof Consumer) context.send((Consumer<MessageBuilder>) result);
-                            else context.send(result.toString());
-                            return;
-                        }
-                        handle.execute(context);
-                        runningAfter = true;
-                        runAfter(context);
-                    } catch (Exception e) {
-                        if (e instanceof InvalidCommandSyntaxException) {
-                            context.send("❌ Invalid syntax!\n" + handle.getUsage());
-                        } else if (e instanceof CommandArgsException) {
-                            context.send("❌ " + e.getMessage());
-                        } else settings.getCommandExceptionFunction().accept(context, e);
-                        if (!runningAfter) runAfter(context);
+            if (event.getMessage().getMentionedUsers().contains(event.getJDA().getSelfUser())) {
+                String message = settings.getMentionedMessage();
+                System.out.println(event.getMessage().getContentRaw().length());
+                if ((event.getTextChannel().canTalk() && event.getMessage().getContentRaw().length() < 23))
+                    if (message != null) event.getChannel().sendMessage(message).queue();
+                    else if (settings.getMentionedMessageGetter() != null) event.getChannel()
+                            .sendMessage(settings.getMentionedMessageGetter().apply(event.getGuild())).queue();
+            } else {
+                String prefix = settings.getPrefixGetter() == null ? settings.getPrefix()
+                        : settings.getPrefixGetter().apply(event.getGuild());
+                if (event.getMessage().getContentRaw().startsWith(prefix) || (settings.isCaseIndependent() &&
+                        event.getMessage().getContentRaw().startsWith(prefix.toUpperCase()))) {
+                    if (!event.getTextChannel().canTalk()) {
+                        String cantTalkMessage = settings.getDmOnCantTalk();
+                        if (cantTalkMessage != null)
+                            event.getAuthor().openPrivateChannel().queue(it -> it.sendMessage(cantTalkMessage).queue());
+                        return;
                     }
-                };
 
-                if (settings.isAsync()) threadPool.submit(function);
-                else function.run();
+                    String commandContent = event.getMessage().getContentRaw().substring(prefix.length());
+                    List<String> args = settings.isJoinQuotedArgs() ? quotedArgsJoinedSplit(commandContent) :
+                            Arrays.asList(commandContent.split(" "));
+                    if (args.isEmpty()) return;
+                    String command = args.get(0);
+
+                    if (!aliasMap.containsKey(command)) return;
+                    if (settings.isRemoveCommandMessages()) event.getMessage().delete().queue();
+
+                    Command handle = aliasMap.get(command);
+                    Runnable function = () -> {
+                        CommandContext context = CommandContext.builder()
+                                .author(event.getAuthor()).authorMember(event.getGuild().getMember(event.getAuthor()))
+                                .guild(event.getGuild()).channel((TextChannel) event.getChannel()).message(event.getMessage())
+                                .args(args).jda(event.getJDA()).framework(this).currentCommand(handle).event(event)
+                                .commandTree(new ArrayList<>(Collections.singletonList(handle))).build();
+                        boolean runningAfter = false;
+
+                        try {
+                            for (Command.Executor executor : before) {
+                                Object result = executor.execute(context);
+                                if (result == null) continue;
+
+                                if (result instanceof String) context.send((String) result);
+                                else if (result instanceof MessageEmbed) context.send((MessageEmbed) result);
+                                else if (result instanceof EmbedBuilder) context.send((EmbedBuilder) result);
+                                else if (result instanceof Consumer) context.send((Consumer<MessageBuilder>) result);
+                                else context.send(result.toString());
+                                return;
+                            }
+                            handle.execute(context);
+                            runningAfter = true;
+                            runAfter(context);
+                        } catch (Exception e) {
+                            if (e instanceof InvalidCommandSyntaxException) {
+                                context.send("❌ Invalid syntax!\n" + handle.getUsage());
+                            } else if (e instanceof CommandArgsException) {
+                                context.send("❌ " + e.getMessage());
+                            } else settings.getCommandExceptionFunction().accept(context, e);
+                            if (!runningAfter) runAfter(context);
+                        }
+                    };
+
+                    if (settings.isAsync()) threadPool.submit(function);
+                    else function.run();
+                }
             }
+        } catch (Exception e) {
+            settings.getGenericExceptionFunction().accept("Handling command", e);
         }
     }
 
@@ -272,7 +278,7 @@ public class CommandFramework extends ListenerAdapter {
     }
 
     @Override
-    public void onGenericEvent(Event event) {
+    public void onGenericEvent(GenericEvent event) {
         if (eventHandlers.containsKey(event.getClass())) {
             eventHandlers.get(event.getClass()).forEach(cur -> {
                 try {

@@ -4,14 +4,14 @@ import me.deprilula28.jdacmdframework.CommandContext;
 import me.deprilula28.jdacmdframework.CommandFramework;
 import me.deprilula28.jdacmdframework.Settings;
 import me.deprilula28.jdacmdframework.annotations.CommandExecutor;
-import net.dv8tion.jda.core.AccountType;
-import net.dv8tion.jda.core.JDA;
-import net.dv8tion.jda.core.JDABuilder;
-import net.dv8tion.jda.core.entities.User;
+import net.dv8tion.jda.api.AccountType;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.User;
 
 public class ReflectionTest {
     public static void main(String[] args) throws Exception {
-        JDA jda = new JDABuilder(AccountType.BOT).setToken(args[0]).buildBlocking();
+        JDA jda = new JDABuilder(AccountType.BOT).setToken(args[0]).build();
         Settings settings = Settings.builder()
                 .prefix("!").async(true).protectMentionEveryone(true)
                 .build();

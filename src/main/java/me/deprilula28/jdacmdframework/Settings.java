@@ -2,7 +2,7 @@ package me.deprilula28.jdacmdframework;
 
 import lombok.Builder;
 import lombok.Data;
-import net.dv8tion.jda.core.entities.Guild;
+import net.dv8tion.jda.api.entities.Guild;
 
 import java.io.File;
 import java.util.concurrent.ExecutorService;

@@ -1,7 +1,7 @@
 package me.deprilula28.jdacmdframework.annotations;
 
 import me.deprilula28.jdacmdframework.CommandContext;
-import net.dv8tion.jda.core.entities.User;
+import net.dv8tion.jda.api.entities.User;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
